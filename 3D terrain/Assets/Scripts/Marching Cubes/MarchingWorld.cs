@@ -24,7 +24,7 @@ public class MarchingWorld : MonoBehaviour
     private MeshRenderer[] encasingRenderers;
     public GameObject encasingObject;
 
-    void Start() {
+    void Start() {//TODO: make world run the marching cubes algorithm and cut only put chunks where there is terrain
         GenerateWorld();
     }
 

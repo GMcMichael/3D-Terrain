@@ -2,59 +2,27 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(PlayerMovement))]
 public class PlayerLight : MonoBehaviour
 {
-    public int lifetime = 5, lightReductionWait = 4;
-    public float radius = 0.1f, fallSpeed = 1, timeStep = 10;
-    public LayerMask collisionMask;
-    bool stuck;
-    private Transform lightT;
-    private Light realLight;
-    private Vector3 velocity;
+    public GameObject throwLight;
+    public float throwSpeed = 50;
+    private Transform playerCamera;
+    private GameObject playerLight;
+    private PlayerMovement playerMovement;
 
-    void Awake() {
-        lightT = transform.Find("Area Light");
-        realLight = lightT.GetComponent<Light>();
+    void Start() {
+        playerCamera = transform.Find("Main Camera");
+        playerLight = playerCamera.Find("Spot Light").gameObject;
+        playerMovement = GetComponent<PlayerMovement>();
     }
 
-    public void Init(Vector3 inheritedVelocity, Vector3 throwVelocity) {
-        velocity += inheritedVelocity + throwVelocity;
-        StartCoroutine("Lifespan");
+    public void ThrowLight(Vector3 velocity) {
+        StickyLight light = Instantiate(throwLight, transform.position, Quaternion.identity).GetComponent<StickyLight>();
+        light.Init(velocity, playerCamera.forward*throwSpeed);
     }
 
-    void UpdateStuck() {
-        stuck = Physics.CheckSphere(transform.position, radius, collisionMask);
-    }
-
-    void Update() {
-        if(!stuck) {
-            velocity += Vector3.down*fallSpeed;
-            Ray ray = new Ray(transform.position, velocity.normalized);
-            if(Physics.SphereCast(ray, radius, out RaycastHit hit, velocity.magnitude*Time.deltaTime, collisionMask)){
-                transform.position = hit.point;
-                lightT.position = hit.point + hit.normal*0.5f;
-                velocity = Vector3.zero;
-                stuck = true;
-            } 
-            else transform.position += velocity * Time.deltaTime;
-        }
-    }
-
-    private IEnumerator Lifespan() {
-        float lightReduction = realLight.intensity/timeStep;
-        float waitTime = lifetime/timeStep;
-        for (int i = 0; i < timeStep; i++)
-        {
-            //float realTime = i*waitTime;
-            //if(realTime > lightReductionWait)
-            realLight.intensity -= lightReduction;
-            yield return new WaitForSeconds(waitTime);
-        }
-        Destroy(transform.gameObject);
-    }
-
-    void OnValidate() {
-        if(radius < 0.1) radius = 0.1f;
-        if(fallSpeed < 0.05) fallSpeed = 0.05f;
+    public void ToggleLight() {
+        playerLight.SetActive(!playerLight.activeInHierarchy);
     }
 }

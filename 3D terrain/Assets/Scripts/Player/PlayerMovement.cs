@@ -4,119 +4,50 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
-    #region PublicVariables
-    public float baseSpeed, sprintMultiplier;
-    public float cameraSpeedX, cameraSpeedY;
-    public float jumpVelocity, jumpCooldown, Gravity;
-    public float minGroundDist;
-    public float maxSlopeAngle = 100;
-    public bool debug;
-    public GameObject throwLight;
-    public float throwSpeed = 1;
-    #endregion
-
-    #region PrivateVariables
-    private Collider bodyCollider;
-    private Transform Colliders, Graphics, Camera;
-    private float cameraRotationY;
-    private bool mouseLocked;
-    private LayerMask worldMask;
-    private float height = 0.5f;
-    private float groundAngle;
-    private float yVelocity;
-    private bool jump, ableToJump, grounded;
-    private Vector3 movement;
-    private Rigidbody rb;
-    private RigidbodyConstraints originalConstraints;
+    public float baseSpeed = 12, sprintMultiplier = 2;
+    public float gravity = -9.81f;
+    public float jumpHeight = 3, jumpCooldown = 2;
+    private CharacterController characterController;
+    private Vector3 velocity;
+    private float jumpVelocity;
+    private bool ableToJump, isGrounded;
     private Transform groundChecker;
-    private GameObject playerLight;
-    #endregion
-    
-    public float vSmoothTime = 0.1f;
-	public float airSmoothTime = 0.5f;
-    Vector3 targetVelocity;
-    Vector3 smoothVelocity;
-    Vector3 smoothVRef;
+    private float groundDist = 0.4f;
+    private LayerMask groundMask;
+    private PlayerLight lightController;
 
-    void Awake()
+    void Start()
     {
-        Colliders = transform.Find("Colliders");
-        Graphics = transform.Find("Graphics");
-        Camera = transform.Find("Main Camera");
-        playerLight = Camera.Find("Spot Light").gameObject;
-        worldMask = LayerMask.GetMask("World");
-        bodyCollider = Colliders.Find("Capsule").GetComponent<Collider>();
-        height = bodyCollider.bounds.extents.y;//may need to update if im changing collider size at any time
-        rb = GetComponent<Rigidbody>();
+        characterController = GetComponent<CharacterController>();
+        lightController = GetComponent<PlayerLight>();
+        groundMask = LayerMask.GetMask("World");
         groundChecker = transform.Find("Ground Checker");
+        jumpVelocity = Mathf.Sqrt(jumpHeight*-2*gravity);
         StartCoroutine("JumpCooldown");
-        originalConstraints = rb.constraints;
     }
 
     void Update()
     {
-        grounded = IsGrounded();
-        HandleInput();
-        CalculateGroundAngle();
-        ShowDebug();
-    }
+        isGrounded = Physics.CheckSphere(groundChecker.position, groundDist, groundMask);
+        if(isGrounded && velocity.y < 0) velocity.y = -2f;
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
 
-    void FixedUpdate() {//do physics calcs in fixed update
-        //if(movement != Vector3.zero) Move();
-        //Move();
-        rb.MovePosition (rb.position + smoothVelocity * Time.fixedDeltaTime);
-        if(!grounded) rb.AddForce(-Vector3.up * Gravity, ForceMode.Acceleration);
-        else if(jump) {
-            jump = false;
-            rb.velocity = new Vector3(rb.velocity.x, 0, rb.velocity.z);
-            rb.AddForce(Vector3.up * jumpVelocity, ForceMode.VelocityChange);
-        }
-    }
+        Vector3 movement = transform.right*x + transform.forward*z;
 
-    private void HandleInput() {
-        if(Input.GetKeyDown(KeyCode.L)) {
-            if(mouseLocked) Cursor.lockState = CursorLockMode.None;
-            else Cursor.lockState = CursorLockMode.Locked;
-            mouseLocked = !mouseLocked;
-        }
-        if(Input.GetKeyDown(KeyCode.Mouse0)) ThrowLight();
-        if(Input.GetKeyDown(KeyCode.Mouse1)) ToggleLight();
-        //value is in the range -1 to 1, use deltaTime to make it move (speed) meters per second instead of (speed) meters per frame
-        //movement = new Vector3(Input.GetAxis("Vertical"), 0, Input.GetAxis("Horizontal")) * baseSpeed * Time.deltaTime;
-        //if(Input.GetKey(KeyCode.LeftShift)) movement *= sprintMultiplier;
-        //if(movement != Vector3.zero) Move();
+        characterController.Move(movement * baseSpeed * (Input.GetKey(KeyCode.LeftShift) ? sprintMultiplier : 1) * Time.deltaTime);
 
-        Vector3 input = new Vector3 (Input.GetAxisRaw ("Horizontal"), 0, Input.GetAxisRaw ("Vertical"));
-		bool running = Input.GetKey (KeyCode.LeftShift);
-		targetVelocity = transform.TransformDirection (input.normalized) * ((running) ? (baseSpeed*sprintMultiplier) : baseSpeed);
-		smoothVelocity = Vector3.SmoothDamp (smoothVelocity, targetVelocity, ref smoothVRef, (grounded) ? vSmoothTime : airSmoothTime);
-
-        //Get the mouse delta. This is not in the range -1 to 1
-        Vector2 Rotation = new Vector2(-Input.GetAxis("Mouse Y") * cameraSpeedY, Input.GetAxis("Mouse X") * cameraSpeedX);
-        if(Rotation != Vector2.zero) Rotate(Rotation);
-
-        
-        if(ableToJump && grounded && Input.GetKey(KeyCode.Space)){
-            jump = true;
+        if(Input.GetButton("Jump") && ableToJump && isGrounded) {
+            velocity.y = jumpVelocity;
             StartCoroutine("JumpCooldown");
         }
-    }
 
-    private void ThrowLight() {
-        PlayerLight light = Instantiate(throwLight, transform.position, Quaternion.identity).GetComponent<PlayerLight>();
-        light.Init(smoothVelocity, Camera.forward*throwSpeed);
-    }
+        velocity.y += gravity * Time.deltaTime;
 
-    private void ToggleLight() {
-        playerLight.SetActive(!playerLight.activeInHierarchy);
-    }
-
-    private void FreezeConstraints(bool freeze) {
-        if(freeze) {
-            rb.constraints = originalConstraints | RigidbodyConstraints.FreezePositionX | RigidbodyConstraints.FreezePositionZ;
-        } else {
-            rb.constraints = originalConstraints;
-        }
+        characterController.Move(velocity * Time.deltaTime);
+        
+        if(Input.GetKeyDown(KeyCode.Mouse0)) lightController.ThrowLight(velocity);//Send actual velocity
+        if(Input.GetKeyDown(KeyCode.Mouse1)) lightController.ToggleLight();
     }
 
     IEnumerator JumpCooldown() {
@@ -125,65 +56,8 @@ public class PlayerMovement : MonoBehaviour
         ableToJump = true;
     }
 
-    private void CheckHit() {
-        RaycastHit hit;
-        if(Physics.Raycast(Camera.position, Camera.forward, out hit, worldMask)) {
-            Debug.Log("hit");
-        }
-    }
-
-    private void Move() {
-        if(groundAngle > maxSlopeAngle) {
-            FreezeConstraints(false);
-            return;
-        }
-        if(movement == Vector3.zero) {
-            FreezeConstraints(true);
-            return;
-        }
-        FreezeConstraints(false);
-        rb.MovePosition(transform.position + (transform.forward * movement.x) + (transform.right * movement.z));
-    }
-
-    private void Rotate(Vector2 Rotation) {
-        //rotate player if their character is pointed to far away from the camera
-        transform.Rotate(0,Rotation.y,0);
-        cameraRotationY += Rotation.x;
-        //Clamp camera vertical rotation
-        cameraRotationY = Mathf.Clamp(cameraRotationY, -60, 60);
-        Camera.rotation = Quaternion.Euler(cameraRotationY, transform.rotation.eulerAngles.y, 0);
-    }
-
-    private void CalculateGroundAngle() {
-        if(!grounded) {
-            groundAngle = 90;
-            return;
-        }
-        
-        RaycastHit hitInfo;
-        Physics.Raycast(transform.position, -Vector3.up, out hitInfo, height + minGroundDist, worldMask);
-        groundAngle = Vector3.Angle(hitInfo.normal, transform.forward);
-    }
-
-    private void ShowDebug() {
-        if(!debug) return;
-    }
-
-    public bool IsGrounded() {
-        //check for ground in sphere around characters feet
-        if(Physics.OverlapSphere(groundChecker.position, 0.4f, worldMask).Length > 0) {
-            /*if(Vector3.Distance(transform.position, hitInfo.point) < height) {
-                transform.position = Vector3.Lerp(transform.position, transform.position + Vector3.up * height, 5 * Time.deltaTime);
-            }*/
-            return true;
-        }
-        return false;
-    }
-
     void OnValidate() {
         if(baseSpeed < 0) baseSpeed = 0;
         if(sprintMultiplier < 1) sprintMultiplier = 1;
-        if(cameraSpeedX < 0) cameraSpeedX = 0;
-        if(cameraSpeedY < 0) cameraSpeedY = 0;
     }
 }
