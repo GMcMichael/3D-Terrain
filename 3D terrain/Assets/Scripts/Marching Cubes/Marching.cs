@@ -50,7 +50,10 @@ public class Marching : MonoBehaviour
     public bool randSeed, randCenter, encloseNoise, enclosureInvisable, centerMesh, autoUpdate, LogInfo;
     public GameObject encasingObject;
     public int seed, width = 10, height = 10, depth = 10, resolution = 10;//make width, depth, and height a vector3 so its easier to pass
-    public float scale = 1,frequency = 1;
+    public float scale = 1, noiseFrequency = 1, noiseAmplitude = 1;
+    public int noiseOctaves = 3;
+    public float warpFrequency = 1, warpAmplitude = 1, floorLevel = -13;
+    public bool hasFloor = false;
     public Vector3 noiseCenter;
     public float rotateSpeed = 10;
     public float radius;
@@ -59,7 +62,6 @@ public class Marching : MonoBehaviour
 
     public void Update() {
         if(partOfWorld) return;
-        Debug.Log("Wrong");
         float baseSpeed = rotateSpeed*10;
         if(Input.GetKeyDown(KeyCode.Space))
             DisplayMeshes();
@@ -106,7 +108,7 @@ public class Marching : MonoBehaviour
             GameObject mesh = new GameObject("Mesh");
             mesh.transform.position += transform.position-offset;
             mesh.transform.parent = transform;
-            mesh.transform.localScale = Vector3.one * (1/frequency)*_scale;
+            mesh.transform.localScale = Vector3.one*_scale;//*(1/frequency);
             mesh.layer = LayerMask.NameToLayer("World");
             Mesh newMesh = meshData.CreateMesh(LogInfo);
             MeshFilter meshFilter = mesh.AddComponent<MeshFilter>();
@@ -146,9 +148,9 @@ public class Marching : MonoBehaviour
     }
 
     public List<MeshData> GenerateMesh(int _seed, float _surface, int _width, int _height, int _depth) {
-        _width *= (int)frequency;
+        /*_width *= (int)frequency;
         _height *= (int)frequency;
-        _depth *= (int)frequency;
+        _depth *= (int)frequency;*/
         SetUp();
         float[,,] noiseMap = Get3DNoise(_seed, _width, _height, _depth);
         existingVerticies = new Dictionary<string, int>();//Key: Vector position as string, Value: index in vertex array
@@ -169,7 +171,6 @@ public class Marching : MonoBehaviour
             }
         }
         //split the meshes
-
         //must be divisible by 3
         int maxVerticiesPerMesh = 30000;
         if(maxVerticiesPerMesh%3 != 0) maxVerticiesPerMesh -= maxVerticiesPerMesh%3;
@@ -300,42 +301,91 @@ public class Marching : MonoBehaviour
                 _x = point.x/(resolution-1);
                 _y = point.y/(resolution-1);
                 _z = point.z/(resolution-1);
-                value = noise.Evaluate((new Vector3(_x,_y,_z)+noiseCenter) * frequency );
+                value = noise.Evaluate((new Vector3(_x,_y,_z)+noiseCenter) * noiseFrequency);
             break;
             case NoiseType.NoiseStretch:
                 _x = point.x / (dimensions.x - 1.0f);
                 _y = point.y / (dimensions.y - 1.0f);
                 _z = point.z / (dimensions.z - 1.0f);
-                value = noise.Evaluate(new Vector3(_x,_y,_z) * frequency + noiseCenter);
+                value = noise.Evaluate(new Vector3(_x,_y,_z) * noiseFrequency + noiseCenter);
             break;
             case NoiseType.Sphere:
                 point -= dimensions/2;
                 value = radius-Mathf.Sqrt(Mathf.Pow(point.x,2)+Mathf.Pow(point.y,2)+Mathf.Pow(point.z,2));
             break;
-            case NoiseType.Terrain:
+            case NoiseType.Terrain://TODO: try and use trilinear interpolation when sampling the lowest octave or two (using full floating-point percision?).
                 value = -point.y+1;
+                float amplitude = noiseAmplitude;
+                float frequency = noiseFrequency;
+                Random.InitState((int)(point.x+point.y+point.z));
+                for (int i = 0; i < noiseOctaves; i++)
+                {
+                    value += noise.Evaluate(point*frequency)*amplitude;
+                    amplitude /= 2;
+                    frequency *= GetFrequencyMultiplier();
+                }
                 //keep adding noise to value
             break;
             case NoiseType.Testing:
-                _x = point.x/(resolution-1);
-                _y = point.y/(resolution-1);
-                _z = point.z/(resolution-1);
-                value = noise.Evaluate((new Vector3(_x,_y,_z)+noiseCenter) * frequency );
+                //point += GetWarp(point, noise);
+                value = -point.y+1;
+                float amplitudeTest = noiseAmplitude;
+                float frequencyTest = noiseFrequency;
+                Random.InitState((int)(point.x+point.y+point.z));
+                for (int i = 0; i < noiseOctaves; i++)
+                {
+                    value += noise.Evaluate(point*frequencyTest)*amplitudeTest;
+                    amplitudeTest /= 2;
+                    frequencyTest *= GetFrequencyMultiplier();
+                }
+                if(hasFloor) value += Mathf.Clamp01((floorLevel - point.y)*3)*40;//add tiny bit of noise so floor isnt flat
             break;
 
         }
         return value;
     }
 
+    private Vector3 GetWarp(Vector3 point, Noise noise) {
+        //This causes terraces
+        /*point *= warpFrequency;
+        float x = noise.Evaluate(new Vector3(point.x, 0, 0));
+        float y = noise.Evaluate(new Vector3(0, point.y, 0));
+        float z = noise.Evaluate(new Vector3(0, 0, point.z));
+        Vector3 test = new Vector3(x,y,z)*warpAmplitude;
+        return test;*/
+        
+        float warp = noise.Evaluate(point*warpFrequency)*warpAmplitude;
+        return Vector3.one*warp;
+    }
+
+    private float GetFrequencyMultiplier() {
+        float num = 0;
+        while(num == 0) num = Random.Range(-0.05f, 0.05f);
+        return num+2;
+    }
+
     void OnValidate() {
         valuesChanged = true;
         if(seed < 0) seed = 0;
-        if(frequency < 1) frequency = 1;
         if(scale < 1) scale = 1;
         if(width < 10) width = 10;
         if(height < 10) height = 10;
         if(depth < 10) depth = 10;
         if(resolution < 1) resolution = 1;
+        if(noiseFrequency < 0) noiseFrequency = 0;
+        if(noiseAmplitude < 0) noiseAmplitude = 0;
+        if(noiseOctaves < 0) noiseOctaves = 0;
+    }
+
+    public void SetNoiseData(float _frequency, float _scale, int _octaves, float _warpFrequency, float _warpAmplitude, float _floorLevel, bool _hasFloor) {
+        noiseFrequency = _frequency;
+        noiseAmplitude = _scale;
+        noiseOctaves = _octaves;
+        warpFrequency = _warpFrequency;
+        warpAmplitude =_warpAmplitude;
+        floorLevel = _floorLevel;
+        hasFloor = _hasFloor;
+        OnValidate();
     }
 
     public bool ValuesChanged() {

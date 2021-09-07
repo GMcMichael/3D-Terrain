@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1277903503107185394
+--- !u!1 &9125363286530701274
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,22 +8,22 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1277903503107185396}
-  - component: {fileID: 1277903503107185397}
-  m_Layer: 8
-  m_Name: Marching Cube
+  - component: {fileID: 8703293041788827136}
+  - component: {fileID: 3701068582580786322}
+  m_Layer: 0
+  m_Name: Marching Terrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1277903503107185396
+--- !u!4 &8703293041788827136
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277903503107185394}
+  m_GameObject: {fileID: 9125363286530701274}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
@@ -31,13 +31,13 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1277903503107185397
+--- !u!114 &3701068582580786322
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1277903503107185394}
+  m_GameObject: {fileID: 9125363286530701274}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f171f94c4ab3bb54d8ecd652e8789b83, type: 3}
@@ -46,14 +46,14 @@ MonoBehaviour:
   positionSpace: 1
   vertexMerging: 0
   windingOrder: 0
-  noiseType: 0
+  noiseType: 3
   surface: 0
   randSeed: 0
   randCenter: 0
   encloseNoise: 0
   enclosureInvisable: 0
   centerMesh: 0
-  autoUpdate: 1
+  autoUpdate: 0
   LogInfo: 0
   encasingObject: {fileID: 6954724587846838796, guid: cd6f3bcb86ae27a4d9d14ef171f0fcbc,
     type: 3}

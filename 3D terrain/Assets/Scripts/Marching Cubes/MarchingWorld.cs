@@ -4,10 +4,21 @@ using UnityEngine;
 
 public class MarchingWorld : MonoBehaviour
 {
-    public int width, height, depth;
-    public float scale;
+    public enum WorldType {
+        Noise,
+        Terrain,
+        Testing
+    }
+    public WorldType worldType;
+    public int width = 1, height = 1, depth = 1;
+    public float scale = 1, noiseFrequency = 1, noiseAmplitude = 1;
+    public int noiseOctaves = 1;
+    public float warpFrequency = 1, warpAmplitude = 1, floorLevel = -13;
+    public bool hasFloor = false;
+    public readonly Vector2[] worlds = new Vector2[] //stores as Vector2(Frequency, Amplitude)
+        { new Vector2(0.02f, 38)};
     public bool autoUpdate, centerWorld, encaseWorld, enclosureInvisable;
-    public Marching MarchingChunk;
+    public Marching marchingNoise, marchingTerrain, marchingTesting;
     private bool valuesChanged;
     private Transform[,,] world;
     private MeshRenderer[] encasingRenderers;
@@ -21,21 +32,26 @@ public class MarchingWorld : MonoBehaviour
         GenerateWorld(width, height, depth, scale);
     }
 
-    private void GenerateWorld(int _width, int _height, int _depth, float _scale) {
+    private void GenerateWorld(int _width, int _height, int _depth, float _scale) {//TODO: Add seed on world here and apply seed to chunks, make world save and reload chunks with dictonary
         valuesChanged = false;
         DeleteWorld();
         world = new Transform[_width, _height, _depth];
-        Vector3 ChunkDimensions = MarchingChunk.GetDimensions();
+        Marching marchingType = null;
+        if(worldType == WorldType.Noise) marchingType = marchingNoise;
+        else if(worldType == WorldType.Terrain) marchingType = marchingTerrain;
+        else marchingType = marchingTesting;
+        Vector3 ChunkDimensions = marchingType.GetDimensions();
         Vector3 offset = Vector3.zero;
-        if(centerWorld) offset = Vector3.Scale(ChunkDimensions-Vector3.one, new Vector3(_width, _height, _depth))/2f; //new Vector3(((ChunkDimensions.x-1)*(_width-1))/2f, ((ChunkDimensions.y-1)*(_height-1))/2f, ((ChunkDimensions.z-1)*(_depth-1))/2f);
+        if(centerWorld) offset = Vector3.Scale(ChunkDimensions-Vector3.one, new Vector3(_width, _height, _depth))/2f;
         for (int x = 0; x < world.GetLength(0); x++)
         {
             for (int y = 0; y < world.GetLength(1); y++)
             {
                 for (int z = 0; z < world.GetLength(2); z++)
                 {
-                    world[x,y,z] = Instantiate(MarchingChunk.gameObject, new Vector3((x*ChunkDimensions.x)-x,(y*ChunkDimensions.y)-y,(z*ChunkDimensions.z)-z)-offset+transform.position, Quaternion.identity, transform).transform;
+                    world[x,y,z] = Instantiate(marchingType.gameObject, new Vector3((x*ChunkDimensions.x)-x,(y*ChunkDimensions.y)-y,(z*ChunkDimensions.z)-z)-offset+transform.position, Quaternion.identity, transform).transform;
                     Marching marching = world[x,y,z].GetComponent<Marching>();
+                    marching.SetNoiseData(noiseFrequency, noiseAmplitude, noiseOctaves, warpFrequency, warpAmplitude, floorLevel, hasFloor);
                     marching.DisplayMeshes();
                     marching.SetPartOfWorld(true);
                 }
@@ -43,11 +59,11 @@ public class MarchingWorld : MonoBehaviour
         }
         //change transform scale to scale the world
         transform.localScale = Vector3.one *_scale;
-        if(encaseWorld) AddEncasing(_width, _height, _depth, _scale);
+        if(encaseWorld) AddEncasing(_width, _height, _depth, _scale, ChunkDimensions);
     }
 
-    private void AddEncasing(int _width, int _height, int _depth, float _scale) {
-        Vector3 Dimensions = Vector3.Scale(new Vector3(_width, _height, _depth), MarchingChunk.GetDimensions());
+    private void AddEncasing(int _width, int _height, int _depth, float _scale, Vector3 ChunkDimensions) {
+        Vector3 Dimensions = Vector3.Scale(new Vector3(_width, _height, _depth), ChunkDimensions);
         int x = (int)(Dimensions.x*_scale)/2;
         int y = (int)((Dimensions.y-1)*_scale)/2;
         int z = (int)(Dimensions.z*_scale)/2;
@@ -85,6 +101,9 @@ public class MarchingWorld : MonoBehaviour
         if(height < 1) height = 1;
         if(depth < 1) depth = 1;
         if(scale < 1) scale = 1;
+        if(noiseFrequency < 0) noiseFrequency = 0;
+        if(noiseAmplitude < 0) noiseAmplitude = 0;
+        if(noiseOctaves < 0) noiseOctaves = 0;
     }
 
     public bool ValuesChanged() {
