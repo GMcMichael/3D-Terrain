@@ -16,7 +16,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &8703293041788827136
 Transform:
   m_ObjectHideFlags: 0
@@ -63,8 +63,14 @@ MonoBehaviour:
   depth: 10
   resolution: 10
   scale: 1
-  frequency: 1
+  noiseFrequency: 1
+  noiseAmplitude: 1
+  noiseOctaves: 3
+  warpFrequency: 1
+  warpAmplitude: 1
+  floorLevel: -13
+  hasFloor: 0
   noiseCenter: {x: 0, y: 0, z: 0}
   rotateSpeed: 8
   radius: 5
-  meshMaterial: {fileID: 2100000, guid: ee86d771cb0f69941ab9e4bb4e2197fc, type: 2}
+  meshMaterial: {fileID: 2100000, guid: 64698a27e0b88c34f885747c6ecee12d, type: 2}

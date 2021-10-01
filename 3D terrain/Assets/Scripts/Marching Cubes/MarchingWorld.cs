@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class MarchingWorld : MonoBehaviour
 {
@@ -10,7 +11,7 @@ public class MarchingWorld : MonoBehaviour
         Testing
     }
     public WorldType worldType;
-    public int width = 1, height = 1, depth = 1;
+    public int seed = 0, width = 1, height = 1, depth = 1;
     public float scale = 1, noiseFrequency = 1, noiseAmplitude = 1;
     public int noiseOctaves = 1;
     public float warpFrequency = 1, warpAmplitude = 1, floorLevel = -13;
@@ -23,16 +24,19 @@ public class MarchingWorld : MonoBehaviour
     private Transform[,,] world;
     private MeshRenderer[] encasingRenderers;
     public GameObject encasingObject;
+    public NavMeshSurface navSurface;
 
     void Start() {//TODO: make world run the marching cubes algorithm and cut only put chunks where there is terrain
         GenerateWorld();
     }
 
     public void GenerateWorld() {
-        GenerateWorld(width, height, depth, scale);
+        GenerateWorld(width, height, depth, scale, seed);
+        WorldManaManager.CreateNoise();//TODO: Maybe add seed here
+        navSurface.BuildNavMesh();
     }
 
-    private void GenerateWorld(int _width, int _height, int _depth, float _scale) {//TODO: Add seed on world here and apply seed to chunks, make world save and reload chunks with dictonary
+    private void GenerateWorld(int _width, int _height, int _depth, float _scale, int _seed) {//TODO: Add seed on world here and apply seed to chunks, make world save and reload chunks with dictonary
         valuesChanged = false;
         DeleteWorld();
         world = new Transform[_width, _height, _depth];
@@ -50,8 +54,9 @@ public class MarchingWorld : MonoBehaviour
                 for (int z = 0; z < world.GetLength(2); z++)
                 {
                     world[x,y,z] = Instantiate(marchingType.gameObject, new Vector3((x*ChunkDimensions.x)-x,(y*ChunkDimensions.y)-y,(z*ChunkDimensions.z)-z)-offset+transform.position, Quaternion.identity, transform).transform;
+                    world[x,y,z].gameObject.SetActive(true);
                     Marching marching = world[x,y,z].GetComponent<Marching>();
-                    marching.SetNoiseData(noiseFrequency, noiseAmplitude, noiseOctaves, warpFrequency, warpAmplitude, floorLevel, hasFloor);
+                    marching.SetNoiseData(_seed, noiseFrequency, noiseAmplitude, noiseOctaves, warpFrequency, warpAmplitude, floorLevel, hasFloor);
                     marching.DisplayMeshes();
                     marching.SetPartOfWorld(true);
                 }

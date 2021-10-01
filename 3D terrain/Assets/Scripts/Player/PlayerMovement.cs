@@ -12,7 +12,7 @@ public class PlayerMovement : MonoBehaviour
     private float jumpVelocity;
     private bool ableToJump, isGrounded;
     private Transform groundChecker;
-    private float groundDist = 0.4f;
+    public float groundDist = 0.4f;
     private LayerMask groundMask;
     private PlayerLight lightController;
 

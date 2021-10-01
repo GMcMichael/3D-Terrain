@@ -377,7 +377,8 @@ public class Marching : MonoBehaviour
         if(noiseOctaves < 0) noiseOctaves = 0;
     }
 
-    public void SetNoiseData(float _frequency, float _scale, int _octaves, float _warpFrequency, float _warpAmplitude, float _floorLevel, bool _hasFloor) {
+    public void SetNoiseData(int _seed, float _frequency, float _scale, int _octaves, float _warpFrequency, float _warpAmplitude, float _floorLevel, bool _hasFloor) {
+        seed = _seed;
         noiseFrequency = _frequency;
         noiseAmplitude = _scale;
         noiseOctaves = _octaves;
@@ -414,7 +415,14 @@ public class Marching : MonoBehaviour
         }
 
         public Mesh CreateMesh(bool LogInfo = false) {
-            if(LogInfo) Debug.Log("Verticies Count: " + verticies.Length);
+            if(LogInfo){
+                Debug.Log("Verticies Count: " + verticies.Length);
+                /*Debug.Log("First 5 angles");
+                for (int i = 0; i < 5; i++)
+                {
+                    verticies[i]
+                }*/
+            }
             Mesh mesh = new Mesh();
             mesh.vertices = verticies;
             mesh.triangles = triangles;
