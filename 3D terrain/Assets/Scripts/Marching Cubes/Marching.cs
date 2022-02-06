@@ -42,44 +42,28 @@ public class Marching : MonoBehaviour
     private Dictionary<string, int> existingVerticies;
     private MeshRenderer[] encasingRenderers;
     private bool valuesChanged;
-    private bool partOfWorld;
     #endregion
     
     #region PublicVariables
     public float surface;
-    public bool randSeed, randCenter, encloseNoise, enclosureInvisable, centerMesh, autoUpdate, LogInfo;
+    public bool randSeed, randCenter, randFilterCenter, encloseNoise, enclosureInvisable, centerMesh, autoUpdate, LogInfo;
     public GameObject encasingObject;
     public int seed, width = 10, height = 10, depth = 10, resolution = 10;//make width, depth, and height a vector3 so its easier to pass
-    public float scale = 1, noiseFrequency = 1, noiseAmplitude = 1;
+    public float scale = 1, noiseFrequency = 1, noiseAmplitude = 1, filterFrequency = 1;
+    public AnimationCurve filterCurve;
     public int noiseOctaves = 3;
     public float warpFrequency = 1, warpAmplitude = 1, floorLevel = -13;
     public bool hasFloor = false;
-    public Vector3 noiseCenter;
-    public float rotateSpeed = 10;
+    public Vector3 noiseCenter, filterCenter;
     public float radius;
     public Material meshMaterial;
     #endregion
 
-    public void Update() {
-        if(partOfWorld) return;
-        float baseSpeed = rotateSpeed*10;
-        if(Input.GetKeyDown(KeyCode.Space))
-            DisplayMeshes();
-        else if(Input.GetKeyDown(KeyCode.UpArrow))
-            seed++;
-        else if(Input.GetKeyDown(KeyCode.DownArrow))
-            seed--;
-        if(Input.GetKey(KeyCode.LeftShift))
-            baseSpeed *= 2;
-        if(Input.GetKey(KeyCode.LeftArrow))
-            transform.Rotate(Vector3.up, -baseSpeed * Time.deltaTime);
-        else if(Input.GetKey(KeyCode.RightArrow))
-            transform.Rotate(Vector3.up, baseSpeed * Time.deltaTime);
-    }
-
     public void SetUp() {
         if(randSeed) seed = Random.Range(0, 100000);
+        Random.InitState(seed);
         if(randCenter) noiseCenter = new Vector3(Random.Range(-100000, 100000),Random.Range(-100000, 100000),Random.Range(-100000, 100000));
+        if(randFilterCenter) filterCenter = new Vector3(Random.Range(-100000, 100000), Random.Range(-100000, 100000), Random.Range(-100000, 100000));
         minValue = float.MaxValue;
         maxValue = float.MinValue;
         cube = new float[8];
@@ -174,12 +158,13 @@ public class Marching : MonoBehaviour
         //must be divisible by 3
         int maxVerticiesPerMesh = 30000;
         if(maxVerticiesPerMesh%3 != 0) maxVerticiesPerMesh -= maxVerticiesPerMesh%3;
-        int numMeshes = triangles.Count / maxVerticiesPerMesh + 1;//use triangles instead of verticies incase im removing duplicate verticies
+        int numMeshes = triangles.Count / maxVerticiesPerMesh + 1;//use triangles instead of verticies incase of removing duplicate verticies
         List<MeshData> meshes = new List<MeshData>();
         for (int i = 0; i < numMeshes; i++)
         {
             List<Vector3> splitVerticies = new List<Vector3>();
             List<int> splitTriangles = new List<int>();
+            List<Vector2> splitUvs = new List<Vector2>();
             existingVerticies = new Dictionary<string, int>();
 
             for (int j = 0; j < maxVerticiesPerMesh; j++)
@@ -193,6 +178,9 @@ public class Marching : MonoBehaviour
                         } else {
                             //doesn't exist, add to vertex list and existingVerticies
                             splitVerticies.Add(verticies[triangles[index]]);
+                            //splitUvs.Add(uvs[triangles[index]]);//can probably generate uvs right here
+                            Vector3 vertex = verticies[triangles[index]];
+                            splitUvs.Add(new Vector2(vertex.x/_width, vertex.z/_depth));
                             existingVerticies.Add(GetHashCode(verticies[triangles[index]]), splitVerticies.Count-1);
                             splitTriangles.Add(splitVerticies.Count-1);
                         }
@@ -205,7 +193,7 @@ public class Marching : MonoBehaviour
 
             if(splitVerticies.Count == 0) break;
 
-            meshes.Add(new MeshData(splitVerticies, splitTriangles));
+            meshes.Add(new MeshData(splitVerticies, splitTriangles, splitUvs));
         }
         return meshes;
     }
@@ -315,30 +303,42 @@ public class Marching : MonoBehaviour
             break;
             case NoiseType.Terrain://TODO: try and use trilinear interpolation when sampling the lowest octave or two (using full floating-point percision?).
                 value = -point.y+1;
-                float amplitude = noiseAmplitude;
-                float frequency = noiseFrequency;
-                Random.InitState((int)(point.x+point.y+point.z));
+                float nAmp = noiseAmplitude;
+                float nFre = noiseFrequency;
+                //Random.InitState((int)(point.x+point.y+point.z));
                 for (int i = 0; i < noiseOctaves; i++)
                 {
-                    value += noise.Evaluate(point*frequency)*amplitude;
-                    amplitude /= 2;
-                    frequency *= GetFrequencyMultiplier();
+                    value += noise.Evaluate(point*nFre)*nAmp;
+                    nAmp /= 2;
+                    nFre *= 1.95f;//GetFrequencyMultiplier();//pretty sure this is causing the "spikes" in the terrain
                 }
+                if(hasFloor) value += Mathf.Clamp01((floorLevel - point.y)*3)*40;
                 //keep adding noise to value
             break;
             case NoiseType.Testing:
-                //point += GetWarp(point, noise);
+                //Get filter noise to multiply the heightmap noise by
+                float filterFre = filterFrequency;
+                float filterWeight = noise.Evaluate((filterCenter+point)*filterFre);
+                //filterWeight is from -1 to 1 so I +1 then /2 to get from (-1 to 1) to (0 to 1)
+                filterWeight++;
+                filterWeight /= 2;
+                //maybe could multiply by an amplitude here to make it larger if needed
+                //Set value to flat plane (-point.y+1)
                 value = -point.y+1;
-                float amplitudeTest = noiseAmplitude;
-                float frequencyTest = noiseFrequency;
-                Random.InitState((int)(point.x+point.y+point.z));
+                //get heightmap noise
+                float heightValue = 0;
+                float heightAmp = noiseAmplitude;
+                float heightFre = noiseFrequency;
                 for (int i = 0; i < noiseOctaves; i++)
                 {
-                    value += noise.Evaluate(point*frequencyTest)*amplitudeTest;
-                    amplitudeTest /= 2;
-                    frequencyTest *= GetFrequencyMultiplier();
+                    heightValue += noise.Evaluate(point*heightFre)*heightAmp;
+                    heightAmp /= 2;
+                    heightFre *= 1.95f;
                 }
-                if(hasFloor) value += Mathf.Clamp01((floorLevel - point.y)*3)*40;//add tiny bit of noise so floor isnt flat
+                //multiply heightmap noise by filter
+                heightValue *= filterCurve.Evaluate(filterWeight);
+                //add filtered heightmap to value
+                value += heightValue;
             break;
 
         }
@@ -377,16 +377,23 @@ public class Marching : MonoBehaviour
         if(noiseOctaves < 0) noiseOctaves = 0;
     }
 
-    public void SetNoiseData(int _seed, float _frequency, float _scale, int _octaves, float _warpFrequency, float _warpAmplitude, float _floorLevel, bool _hasFloor) {
+    public void SetNoiseData(int _seed, float _frequency, float _amplitude, int _octaves, float _filterFrequency, Vector3 _filterCenter, AnimationCurve _filterCurve, float _warpFrequency, float _warpAmplitude, float _floorLevel, bool _hasFloor) {
         seed = _seed;
         noiseFrequency = _frequency;
-        noiseAmplitude = _scale;
+        noiseAmplitude = _amplitude;
         noiseOctaves = _octaves;
+        filterFrequency = _filterFrequency;
+        filterCenter = _filterCenter;
+        filterCurve = _filterCurve;
         warpFrequency = _warpFrequency;
         warpAmplitude =_warpAmplitude;
         floorLevel = _floorLevel;
         hasFloor = _hasFloor;
         OnValidate();
+    }
+
+    public void SetMaterial(Material _meshMaterial) {
+        meshMaterial = _meshMaterial;
     }
 
     public bool ValuesChanged() {
@@ -397,35 +404,29 @@ public class Marching : MonoBehaviour
         return new Vector3(width*scale, height*scale, depth*scale);
     }
 
-    public void SetPartOfWorld(bool x) {
-        partOfWorld = x;
-    }
-
     public struct MeshData {
         private Vector3[] verticies;
         private int[] triangles;
-        public MeshData(Vector3[] verticies, int[] triangles) {
+        private Vector2[] uvs;
+        public MeshData(Vector3[] verticies, int[] triangles, Vector2[] uvs) {
             this.verticies = verticies;
             this.triangles = triangles;
+            this.uvs = uvs;
         }
 
-        public MeshData(List<Vector3> verticies, List<int> triangles) {
+        public MeshData(List<Vector3> verticies, List<int> triangles, List<Vector2> uvs) {
             this.verticies = verticies.ToArray();
             this.triangles = triangles.ToArray();
+            this.uvs = uvs.ToArray();
         }
 
         public Mesh CreateMesh(bool LogInfo = false) {
-            if(LogInfo){
+            if(LogInfo)
                 Debug.Log("Verticies Count: " + verticies.Length);
-                /*Debug.Log("First 5 angles");
-                for (int i = 0; i < 5; i++)
-                {
-                    verticies[i]
-                }*/
-            }
             Mesh mesh = new Mesh();
             mesh.vertices = verticies;
             mesh.triangles = triangles;
+            mesh.uv = uvs;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;

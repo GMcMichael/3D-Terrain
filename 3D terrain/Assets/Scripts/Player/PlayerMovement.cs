@@ -50,7 +50,7 @@ public class PlayerMovement : MonoBehaviour
         if(Input.GetKeyDown(KeyCode.Mouse1)) lightController.ToggleLight();
     }
 
-    IEnumerator JumpCooldown() {
+    private IEnumerator JumpCooldown() {
         ableToJump = false;
         yield return new WaitForSeconds(jumpCooldown);
         ableToJump = true;

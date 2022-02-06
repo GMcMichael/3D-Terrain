@@ -1,0 +1,126 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#include "MarchingTables.compute"
+
+struct Triangle {
+    float3 vertA;
+    float3 vertB;
+    float3 vertC;
+};
+
+//can support non-square chunks but chunks are square for now
+static int width, height, depth, octaves;//octaves currently doesnt do anything might not be the right place
+
+static float surface;
+
+RWStructuredBuffer<float4> noise;
+RWStructuredBuffer<float3> verts;
+RWStructuredBuffer<int> edgeIndex;
+AppendStructuredBuffer<Triangle> triangles;
+
+int indexFromCoord(int x, int y, int z) {
+    return z * depth * height + y * width + x;
+}
+
+float3 interpolateVerts(float4 v1, float4 v2) {
+    float t = (surface - v1.w) / (v2.w - v1.w);
+    return v1.xyz + t * (v2.xyz-v1.xyz);
+}
+
+[numthreads(8,8,8)]
+void CSMain (int3 id : SV_DispatchThreadID)//might need to be uint3 instead of int3
+{
+    //Dont generate verts at the edge as they dont have enough to make a cube
+	if (id.x >= width - 1) return;
+	if (id.y >= height - 1) return;
+	if (id.z >= depth - 1) return;
+
+    float4 cube[8];
+
+    for(int n = 0; n < 8; n++) {
+        //cube[n] = noise[(id.x + int(cornerOffsets[n].x)) + width * ((id.y + int(cornerOffsets[n].y)) + depth * (id.z + int(cornerOffsets[n].z)))];
+        cube[n] = noise[indexFromCoord(id.x, id.y, id.z)];
+    }
+
+    //March
+    int edgeFlagIndex = 0;
+    float3 edgeVerticies[12];
+
+    //Find the verticies inside the surface
+    for(int i = 0; i < 8; i++) {
+        if(cube[i].w <= surface) edgeFlagIndex |= 1<<i;
+    }
+
+    //output edge flag index
+    if (edgeFlagIndex  != 0 && edgeFlagIndex != 255) edgeIndex[0] = edgeFlagIndex;
+
+    //Get the edges intersected by the surface
+    int edgeFlag = edgeFlags[edgeFlagIndex];
+    if(edgeFlag == 0) return;
+
+    //creates position from id values
+    float3 position = float3(id);
+
+    //Find the intersection between the surface and edge
+    /*for(int j = 0; j < 12; j++) {
+        //if intersection
+        if((edgeFlag && (1<<j)) != 0) {
+            float offset = ((cube[edgeConnections[j].y] - cube[edgeConnections[j].x]) == 0.0f) ? surface : (surface - cube[int(edgeConnections[j].x)]) / (cube[int(edgeConnections[j].y)] - cube[int(edgeConnections[j].x)]);
+            
+            edgeVerticies[j] = position + (cornerOffsets[edgeConnections[j].x] + offset * edgeDirection[j]);
+        }
+    }*/
+
+    //noise index: x + width * (y + depth * z)
+    int index = id.x + width * (id.y + depth * id.z);
+
+    //Create the triangles found, max 5 per cube
+    /*for(int k = 0; k < 5; k++) {
+        if(triangleTable[edgeFlagIndex][(3*k)] < 0) break;
+
+        for (int m = 0; m < 3; m++)
+        {
+            int vertex = triangleTable[edgeFlagIndex][(3*k+m)];
+            //index*15 because each index can have 15 verts (max 5 tris with 3 verts each)
+            verts[index*15 + (3*k+m)] = edgeVerticies[vertex];
+        }
+    }*/
+
+    /*for(int k = 0; k < 5; k++) {
+        if(triangleTable[edgeFlagIndex][(3*k)] < 0) break;
+
+        int a0 = cornerOffsets[triangleTable[edgeFlagIndex][i]].x;
+        int b0 = cornerOffsets[triangleTable[edgeFlagIndex][i]].y;
+        
+        int a1 = cornerOffsets[triangleTable[edgeFlagIndex][(i + 1)]].x;
+        int b1 = cornerOffsets[triangleTable[edgeFlagIndex][(i + 1)]].y;
+
+        int a2 = cornerOffsets[triangleTable[edgeFlagIndex][(i + 2)]].x;
+        int b2 = cornerOffsets[triangleTable[edgeFlagIndex][(i + 2)]].y;
+
+        Triangle tri;
+        tri.vertA = edgeVerticies[a0];
+        tri.vertC = edgeVerticies[a1];
+        tri.vertB = edgeVerticies[a2];
+        triangles.Append(tri);
+    }*/
+
+    for (int k = 0; triangleTable[edgeFlagIndex][k] != -1; k +=3) {
+        // Get indices of corner points A and B for each of the three edges
+        // of the cube that need to be joined to form the triangle.
+        int a0 = cornerOffsets[triangleTable[edgeFlagIndex][k]].x;
+        int b0 = cornerOffsets[triangleTable[edgeFlagIndex][k]].y;
+
+        int a1 = cornerOffsets[triangleTable[edgeFlagIndex][k+1]].x;
+        int b1 = cornerOffsets[triangleTable[edgeFlagIndex][k+1]].y;
+
+        int a2 = cornerOffsets[triangleTable[edgeFlagIndex][k+2]].x;
+        int b2 = cornerOffsets[triangleTable[edgeFlagIndex][k+2]].y;
+
+        Triangle tri;
+        tri.vertA = interpolateVerts(cube[a0], cube[b0]);
+        tri.vertB = interpolateVerts(cube[a1], cube[b1]);
+        tri.vertC = interpolateVerts(cube[a2], cube[b2]);
+        triangles.Append(tri);
+    }
+}

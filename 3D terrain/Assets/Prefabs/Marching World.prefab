@@ -1,0 +1,103 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2828503550314176855
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2828503550314176853}
+  - component: {fileID: 2828503550314176854}
+  - component: {fileID: 2828503550314176852}
+  m_Layer: 0
+  m_Name: Marching World
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2828503550314176853
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2828503550314176855}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 3, y: 3, z: 3}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2828503550314176854
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2828503550314176855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f63718322a3e564abac6ceba8391654, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  worldType: 2
+  generateAtStart: 0
+  seed: 0
+  width: 1
+  height: 1
+  depth: 1
+  scale: 3
+  noiseFrequency: 0.02
+  noiseAmplitude: 38
+  noiseOctaves: 2
+  warpFrequency: 1
+  warpAmplitude: 2
+  floorLevel: -13
+  hasFloor: 1
+  autoUpdate: 0
+  centerWorld: 1
+  encaseWorld: 0
+  enclosureInvisable: 1
+  meshMaterial: {fileID: 2100000, guid: 64698a27e0b88c34f885747c6ecee12d, type: 2}
+  marchingNoise: {fileID: 928529761459613188, guid: 6453bda8dfdf26c42a4972c05d0bea1a,
+    type: 3}
+  marchingTerrain: {fileID: 3701068582580786322, guid: 5f00441e825e99849b9d1a82de17de75,
+    type: 3}
+  marchingTesting: {fileID: 5314926565112928960, guid: 0df6ff6fdc1c75d4ca2e6a38677d3c6c,
+    type: 3}
+  encasingObject: {fileID: 6954724587846838796, guid: cd6f3bcb86ae27a4d9d14ef171f0fcbc,
+    type: 3}
+  navSurface: {fileID: 2828503550314176852}
+--- !u!114 &2828503550314176852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2828503550314176855}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 823
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_BuildHeightMesh: 0
+  m_NavMeshData: {fileID: 0}

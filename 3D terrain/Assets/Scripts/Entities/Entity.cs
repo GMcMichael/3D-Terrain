@@ -10,9 +10,10 @@ public abstract class Entity : MonoBehaviour
     public virtual void Init() {
         health = maxHealth;
     }
-    public void TakeDamage(int amount) {
+    public void TakeDamage(int amount, SkillSystem.Elements element) {
         health -= amount;
         if(health <= 0) DestroyEntity();
+        //do things based on element: eg set on fire if fire or get poisoned
     }
 
     public void DestroyEntity() {

@@ -10,7 +10,7 @@ public class Building : Entity
     public TextMesh buildingText;
     private Transform player;
 
-     public void Init(BuildingManager builder) {
+    public void Init(BuildingManager builder) {
         base.Init();
         collectionAmount = WorldManaManager.CheckMana(transform.position);
         player = builder.transform;

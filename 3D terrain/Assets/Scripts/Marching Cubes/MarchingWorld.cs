@@ -11,14 +11,20 @@ public class MarchingWorld : MonoBehaviour
         Testing
     }
     public WorldType worldType;
+    public bool generateAtStart;
     public int seed = 0, width = 1, height = 1, depth = 1;
     public float scale = 1, noiseFrequency = 1, noiseAmplitude = 1;
     public int noiseOctaves = 1;
+    public float filterFrequency = 1;
+    public bool randFilterCenter;
+    public Vector3 filterCenter;
+    public AnimationCurve filterCurve;
     public float warpFrequency = 1, warpAmplitude = 1, floorLevel = -13;
     public bool hasFloor = false;
     public readonly Vector2[] worlds = new Vector2[] //stores as Vector2(Frequency, Amplitude)
         { new Vector2(0.02f, 38)};
     public bool autoUpdate, centerWorld, encaseWorld, enclosureInvisable;
+    public Material meshMaterial;
     public Marching marchingNoise, marchingTerrain, marchingTesting;
     private bool valuesChanged;
     private Transform[,,] world;
@@ -27,7 +33,8 @@ public class MarchingWorld : MonoBehaviour
     public NavMeshSurface navSurface;
 
     void Start() {//TODO: make world run the marching cubes algorithm and cut only put chunks where there is terrain
-        GenerateWorld();
+        if(generateAtStart) GenerateWorld();
+        else WorldManaManager.CreateNoise();
     }
 
     public void GenerateWorld() {
@@ -37,6 +44,7 @@ public class MarchingWorld : MonoBehaviour
     }
 
     private void GenerateWorld(int _width, int _height, int _depth, float _scale, int _seed) {//TODO: Add seed on world here and apply seed to chunks, make world save and reload chunks with dictonary
+        if(randFilterCenter) filterCenter = new Vector3(Random.Range(-100000, 100000), Random.Range(-100000, 100000), Random.Range(-100000, 100000));
         valuesChanged = false;
         DeleteWorld();
         world = new Transform[_width, _height, _depth];
@@ -56,9 +64,9 @@ public class MarchingWorld : MonoBehaviour
                     world[x,y,z] = Instantiate(marchingType.gameObject, new Vector3((x*ChunkDimensions.x)-x,(y*ChunkDimensions.y)-y,(z*ChunkDimensions.z)-z)-offset+transform.position, Quaternion.identity, transform).transform;
                     world[x,y,z].gameObject.SetActive(true);
                     Marching marching = world[x,y,z].GetComponent<Marching>();
-                    marching.SetNoiseData(_seed, noiseFrequency, noiseAmplitude, noiseOctaves, warpFrequency, warpAmplitude, floorLevel, hasFloor);
+                    marching.SetMaterial(meshMaterial);
+                    marching.SetNoiseData(_seed, noiseFrequency, noiseAmplitude, noiseOctaves, filterFrequency, filterCenter, filterCurve, warpFrequency, warpAmplitude, floorLevel, hasFloor);
                     marching.DisplayMeshes();
-                    marching.SetPartOfWorld(true);
                 }
             }
         }
