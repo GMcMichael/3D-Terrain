@@ -1,0 +1,23 @@
+﻿#pragma kernel GenerateNoise
+#include "NoiseInclude.compute"
+#include "RandomNoise.compute"
+
+float testNum;
+
+[numthreads(8,8,8)]
+void GenerateNoise (int3 id : SV_DispatchThreadID)
+{
+    if (id.x >= numPointsPerAxis || id.y >= numPointsPerAxis || id.z >= numPointsPerAxis) {
+        return;
+    }
+
+    float3 pos = worldCoords + noiseOffset + (id * spacing);
+
+    float value = 0;
+
+    //evaluate noise based on pos
+    value = -pos.y;
+    value += perlin(pos.xz*testNum);
+    
+    addPoint(id.x, id.y, id.z, value);
+}

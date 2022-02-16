@@ -32,38 +32,39 @@ public class MarchingChunk : MonoBehaviour
         return transform.position;
     }
 
-    public void SetUp(Vector3Int _coord, int _chunkSize, bool generateCollider) {
+    public void SetUp(Vector3Int _coord, int _chunkSize, bool generateCollider, bool centerWorld = false, Vector3? numChunks = null) {//only need numChunks if centering world
         this.coord = _coord;
         this.generateCollider = generateCollider;
         this.chunkSize = _chunkSize;
 
-        transform.position = _coord * chunkSize;
+        Vector3 position = _coord * _chunkSize;
+        if(centerWorld) position -= (((Vector3)numChunks * chunkSize)/2);
+
+        transform.position = position;
 
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
         meshCollider = GetComponent<MeshCollider>();
 
+        //remove current mesh
+        meshFilter.sharedMesh = null;
+        meshCollider.sharedMesh = null;
+
         //turn collider on or off if I want collisions
         meshCollider.enabled = generateCollider;
+    }
 
-        mesh = meshFilter.sharedMesh;
-        if(mesh == null) {
-            mesh = new Mesh();
-            //mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;//do I need this?
-            meshFilter.sharedMesh = mesh;
-        }
+    public void UpdateMeshes(MeshData meshData, bool debug) {
+        mesh = meshData.CreateMesh(debug);//pass true to output debug data
 
+        meshFilter.sharedMesh = mesh;
+        meshCollider.sharedMesh = mesh;
+
+        //force collider update
         if(generateCollider) {
-            if(meshCollider.sharedMesh == null) meshCollider.sharedMesh = mesh;
-            //force collider update
             meshCollider.enabled = false;
             meshCollider.enabled = true;
         }
-    }
-
-    public void UpdateMeshes(List<MeshData> meshes) {
-        Debug.Log(meshes.Count);
-        mesh = meshes[0].CreateMesh(true);
     }
 
     public struct MeshData {
@@ -80,8 +81,14 @@ public class MarchingChunk : MonoBehaviour
         }
 
         public Mesh CreateMesh(bool LogInfo = false) {
-            if(LogInfo)
+            if(LogInfo) {
                 Debug.Log("Verticies Count: " + verticies.Length);
+                Debug.Log("Triangles Count: " + triangles.Length);
+                for (int i = 0; i < verticies.Length; i+=3)
+                {
+                    Debug.Log("Triangle: " + verticies[i] + ", " + verticies[i+1] + ", " + verticies[i+2]);
+                }
+            }
             Mesh mesh = new Mesh();
             mesh.vertices = verticies;
             mesh.triangles = triangles;

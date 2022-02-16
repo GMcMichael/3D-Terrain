@@ -9,11 +9,14 @@ struct Triangle {
 
 AppendStructuredBuffer<Triangle> triangles;
 RWStructuredBuffer<float4> points;
+AppendStructuredBuffer<int3> debuging;
 
-static int numPointsPerAxis;
-static float surface;
+//these variables cannot be static or else the values don't get populated
+int numPointsPerAxis;
+float surface;
 
 float3 interpolateVerts(float4 v1, float4 v2) {
+    if((v2.w - v1.w) == 0 || (surface - v1.w) == 0) return v1.xyz + surface * (v2.xyz-v1.xyz);
     float t = (surface - v1.w) / (v2.w - v1.w);
     return v1.xyz + t * (v2.xyz-v1.xyz);
 }
@@ -21,13 +24,18 @@ float3 interpolateVerts(float4 v1, float4 v2) {
 int indexFromCoord(int x, int y, int z) {
     return z * numPointsPerAxis * numPointsPerAxis + y * numPointsPerAxis + x;
 }
+
 [numthreads(8,8,8)]
 void March (int3 id : SV_DispatchThreadID)
 {   
+    //I THINK THIS IS WHAT WAS BREAKING IT, COULD PROCCESS DATA AFTER I REMOVED IT
     // Stop one point before the end because voxel includes neighbouring points
     if (id.x >= numPointsPerAxis-1 || id.y >= numPointsPerAxis-1 || id.z >= numPointsPerAxis-1) {
+        //debuging.Append(id);
         return;
     }
+
+    //debuging.Append(id);
 
     // 8 corners of the current cube
     float4 cubeCorners[8] = {
@@ -59,20 +67,21 @@ void March (int3 id : SV_DispatchThreadID)
     for (int i = 0; triangleTable[cubeIndex][i] != -1; i +=3) {
         // Get indices of corner points A and B for each of the three edges
         // of the cube that need to be joined to form the triangle.
-        int a0 = cornerOffsets[triangleTable[cubeIndex][i]].x;
-        int b0 = cornerOffsets[triangleTable[cubeIndex][i]].y;
+        int a0 = edgeConnections[triangleTable[cubeIndex][i]].x;
+        int b0 = edgeConnections[triangleTable[cubeIndex][i]].y;
 
-        int a1 = cornerOffsets[triangleTable[cubeIndex][i+1]].x;
-        int b1 = cornerOffsets[triangleTable[cubeIndex][i+1]].y;
+        int a1 = edgeConnections[triangleTable[cubeIndex][i+1]].x;
+        int b1 = edgeConnections[triangleTable[cubeIndex][i+1]].y;
 
-        int a2 = cornerOffsets[triangleTable[cubeIndex][i+2]].x;
-        int b2 = cornerOffsets[triangleTable[cubeIndex][i+2]].y;
+        int a2 = edgeConnections[triangleTable[cubeIndex][i+2]].x;
+        int b2 = edgeConnections[triangleTable[cubeIndex][i+2]].y;
 
         Triangle tri;
         tri.vertexA = interpolateVerts(cubeCorners[a0], cubeCorners[b0]);
         tri.vertexB = interpolateVerts(cubeCorners[a1], cubeCorners[b1]);
         tri.vertexC = interpolateVerts(cubeCorners[a2], cubeCorners[b2]);
         triangles.Append(tri);
+        if(i >= 14) break;
     }
 
 

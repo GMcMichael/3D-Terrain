@@ -1,0 +1,19 @@
+﻿RWStructuredBuffer<float4> points;
+
+int numPointsPerAxis;
+int numPoints;
+float spacing;
+float3 noiseOffset;
+float3 worldCoords;
+float3 worldSize;
+float frequency;
+float amplitude;
+int octaves;
+
+int indexFromCoord(int x, int y, int z) {
+    return z * numPointsPerAxis * numPointsPerAxis + y * numPointsPerAxis + x;
+}
+
+void addPoint(int x, int y, int z, float value) {
+    points[indexFromCoord(x, y, z)] = float4(float3(x*spacing, y*spacing, z*spacing), value);
+}

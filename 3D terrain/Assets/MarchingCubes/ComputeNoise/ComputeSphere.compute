@@ -1,0 +1,21 @@
+﻿#pragma kernel GenerateNoise
+#include "NoiseInclude.compute"
+
+float radius;
+
+[numthreads(8,8,8)]
+void GenerateNoise (int3 id : SV_DispatchThreadID)
+{
+     if (id.x >= numPointsPerAxis || id.y >= numPointsPerAxis || id.z >= numPointsPerAxis) {
+        return;
+    }
+
+    float3 pos = worldCoords + noiseOffset + (id * spacing) - (worldSize/2);
+
+    float value = 0;
+    
+    pos += worldSize/2;
+    value = radius - sqrt((pos.x*pos.x) + (pos.y*pos.y) + (pos.z*pos.z));
+    
+    addPoint(id.x, id.y, id.z, value);
+}

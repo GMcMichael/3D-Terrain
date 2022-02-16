@@ -1,0 +1,18 @@
+﻿#pragma kernel GenerateNoise
+#include "NoiseInclude.compute"
+#include "RandomNoise.compute"
+
+[numthreads(8,8,8)]
+void GenerateNoise (int3 id : SV_DispatchThreadID)
+{
+    if (id.x >= numPointsPerAxis || id.y >= numPointsPerAxis || id.z >= numPointsPerAxis) {
+        return;
+    }
+
+    float3 pos = worldCoords + noiseOffset + (id * spacing);
+
+    //evaluate noise based on pos
+    float value = perlin(pos * frequency) * amplitude;//Doesnt work for some reason, I think no values pass the surface boundary
+    
+    addPoint(id.x, id.y, id.z, value);
+}

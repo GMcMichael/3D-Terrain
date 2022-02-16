@@ -1,0 +1,32 @@
+﻿#pragma kernel GenerateNoise
+#include "NoiseInclude.compute"
+#include "RandomNoise.compute"
+
+bool hasFloor;
+float floorLevel;
+
+[numthreads(8,8,8)]
+void GenerateNoise (int3 id : SV_DispatchThreadID)
+{
+    if (id.x >= numPointsPerAxis || id.y >= numPointsPerAxis || id.z >= numPointsPerAxis) {
+        return;
+    }
+
+    float3 pos = worldCoords + noiseOffset + (id * spacing);
+
+    float value = 0;
+
+    //evaluate noise based on pos
+    value = -pos.y;
+    float nAmp = amplitude;
+    float nFre = frequency;
+    for (int i = 0; i < octaves; i++)
+    {
+        value += perlin(pos*nFre)*nAmp;
+        nAmp /= 2;
+        nFre *= 1.95f;
+    }
+    //if(hasFloor) value += Clamp01((floorLevel - pos.y)*3)*40;//need to find Clamp01 for hlsl or recreate it
+    
+    addPoint(id.x, id.y, id.z, value);
+}

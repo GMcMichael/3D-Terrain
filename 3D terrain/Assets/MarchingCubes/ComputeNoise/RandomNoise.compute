@@ -1,0 +1,64 @@
+﻿//1d Random noise
+float rand(float n) {
+    return frac(sin(n)*100000);
+}
+
+//2d Random noise
+float rand(float2 coords) {
+    return rand( dot(coords.xy, float2(12.9898,78.233)) );
+}
+
+//3d Random noise
+float rand(float3 coords) {
+    return rand( dot(coords.xyz, float3(12.9898,78.233,32.648742)) );
+}
+
+//1d Perlin noise
+float perlin(float n) {
+    float i = floor(n);//integer part of n
+    float f = frac(n);//decimal part of n
+
+    //lerp between corners with smoothstep
+    return lerp(rand(i), rand(i + 1), smoothstep(0,1,f));//could use custom cubic curve instead of smoothstep
+}
+
+//2d Perlin noise
+float perlin(float2 coords) {//multiply coords by a number to change scale or "zoom"
+    float2 i = floor(coords);//integer parts of coords
+    float2 f = frac(coords);//decimal parts of coords
+
+    //four corners of 2d tile
+    float c0 = rand(i);
+    float c1 = rand(i + float2(1,0));
+    float c2 = rand(i + float2(0,1));
+    float c3 = rand(i + float2(1,1));
+
+    //Bilinear interpolation between corners (with smoothstep)
+    float2 smstp = smoothstep(0,1,f);
+    return lerp(lerp(c0, c1, smstp.x), lerp(c2, c3, smstp.x), smstp.y);
+    //return lerp(c0, c1, smstp.x) + (c2 - c0) * smstp.y * (1 - smstp.x) + (c3 - c1) * smstp.x * smstp.y;//optimized code that I dont know how to make
+}
+
+//3d Perlin noise
+float perlin(float3 coords) {
+    float3 i = floor(coords);//integer parts of coord
+    float3 f = frac(coords);//decimal parts of coord
+
+    //bottom corners of 3d cube
+    float c0 = rand(i);
+    float c1 = rand(i + float3(1,0,0));
+    float c2 = rand(i + float3(0,1,0));
+    float c3 = rand(i + float3(1,1,0));
+
+    //top corners of 3d cube
+    float c4 = rand(i + float3(0,0,1));
+    float c5 = rand(i + float3(1,0,1));
+    float c6 = rand(i + float3(0,1,1));
+    float c7 = rand(i + float3(1,1,1));
+
+    //Trilinear interpolation between them with smoothstep
+    float3 smstp = smoothstep(0,1,f);
+    return lerp(lerp(lerp(c0, c1, smstp.x), lerp(c2, c3, smstp.x), smstp.y), lerp(lerp(c4, c5, smstp.x), lerp(c6, c7, smstp.x), smstp.y), smstp.z);
+}
+
+//Try creating simplex noise maybe?
