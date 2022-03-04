@@ -11,6 +11,6 @@ public class PlayerEntity : Entity//move mana to this script
 
     void Update()
     {
-        Debug.Log(health);
+        //Debug.Log(health);
     }
 }

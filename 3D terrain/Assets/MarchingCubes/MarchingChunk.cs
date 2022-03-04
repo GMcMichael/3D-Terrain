@@ -21,8 +21,9 @@ public class MarchingChunk : MonoBehaviour
 
     public void DestoryOrDisable() {
         if(Application.isPlaying) {
-            mesh.Clear();
+            if(mesh != null) mesh.Clear();
             gameObject.SetActive(false);
+            Destroy(gameObject);
         } else {
             DestroyImmediate(gameObject, false);
         }

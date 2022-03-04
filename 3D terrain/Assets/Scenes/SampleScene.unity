@@ -2299,18 +2299,20 @@ MonoBehaviour:
   chunkObject: {fileID: 6818749036367392059, guid: 44aa8109d902b2c49969848fdb082f82,
     type: 3}
   debugInfo: 0
-  settingsChanged: 0
+  settingsChanged: 1
+  playerCamera: {fileID: 189953553}
+  viewDistance: {x: 5, y: 2}
   numChunks: {x: 15, y: 3, z: 15}
   chunkSize: 100
   numPointsPerAxis: 32
-  autoUpdate: 1
+  autoUpdate: 0
   centerWorld: 1
-  fixedMapSize: 1
+  fixedMapSize: 0
   noiseType: 3
   seed: 0
   surface: 0
   noiseOctaves: 3
-  noiseFrequency: 0.01
+  noiseFrequency: -0.01
   noiseAmplitude: 20
   radius: 10.77
   floorLevel: -13
@@ -2376,7 +2378,7 @@ MonoBehaviour:
   hasFloor: 0
   floorLevel: -13
   noiseAmplitude: 20
-  noiseFrequency: 0.01
+  noiseFrequency: -0.01
   noiseOctaves: 3
 --- !u!114 &1561643590
 MonoBehaviour:

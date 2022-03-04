@@ -8,8 +8,9 @@ public class MarchingManagerEditor : Editor
         MarchingManager marchingManager = (MarchingManager)target;
         DrawDefaultInspector();
 
-        if(marchingManager.autoUpdate && marchingManager.settingsChanged)
-            marchingManager.Run();
+        if(marchingManager.autoUpdate && marchingManager.settingsChanged) {
+            marchingManager.GenerateFixedMap();
+        }
 
         if(GUILayout.Button("GenerateFixedMap"))
             marchingManager.GenerateFixedMap();

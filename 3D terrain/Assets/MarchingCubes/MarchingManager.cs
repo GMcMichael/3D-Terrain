@@ -22,11 +22,16 @@ public class MarchingManager : MonoBehaviour
     public bool debugInfo;
     [HideInInspector]
     public bool settingsChanged;
+
+    [Header("Player Settings")]
+    public Transform playerCamera;
+    public Vector2Int viewDistance = new Vector2Int(5, 2);//Horizontal viewDistance, Vertical viewDistance
     
     [Header("World Settings")]
     #region World Settings
     public Vector3Int numChunks = Vector3Int.one;
     public int chunkSize = 10;
+    public int chunkGenMax = 10;//Change to allow for lower framerate if needed. Maybe instead lower mesh quality at high speeds exponentally to a min quality
     [Range (2, 100)]
     public int numPointsPerAxis = 30;
     public bool autoUpdate, centerWorld = true, fixedMapSize;
@@ -41,11 +46,11 @@ public class MarchingManager : MonoBehaviour
     public float noiseFrequency = 1, noiseAmplitude = 1, radius = 10, floorLevel = -13;
     public bool hasFloor = false;
     public Vector3 noiseOffset = Vector3.zero;
-    Noise noise;
     #endregion
 
-    List<MarchingChunk> chunks;
-    Dictionary<Vector3Int, MarchingChunk> existingChunks;
+    //List<MarchingChunk> chunks;
+    Dictionary<Vector3Int, MarchingChunk> chunks;
+    Queue<MarchingChunk> chunkGenQueue;
 
     #region ComputeShaders
     private int threadGroupSize = 8;
@@ -60,26 +65,94 @@ public class MarchingManager : MonoBehaviour
         return z * numPointsPerAxis * numPointsPerAxis + y * numPointsPerAxis + x;
     }
 
-    public void Run() {
-        settingsChanged = false;
-        noise = new Noise(seed);
+    void Awake() {
+        Init();
+    }
+
+    void Update() {
+        if(!fixedMapSize) {
+            CreateVisibleChunks();//Update the terrain as player moves
+            GenerateChunkQueue();
+        }
+
+        if(settingsChanged) UpdateAllChunks();
+    }
+
+    public void Init() {
         sphereNoise = GetComponent<SphereNoise>();
         planeNoise = GetComponent<PlaneNoise>();
         terrainNoise = GetComponent<TerrainNoise>();
         testingNoise = GetComponent<TestingNoise>();
         noise3D = GetComponent<Noise3D>();
-        if(fixedMapSize) GenerateFixedMap();
-        else Debug.Log("Not implemented");
+
+        chunks = new Dictionary<Vector3Int, MarchingChunk>();
+        chunkGenQueue = new Queue<MarchingChunk>();
+    }
+
+    private async void GenerateChunkQueue() {
+        if(chunkGenQueue.Count > 0)
+            for (int i = 0; i < Mathf.Min(chunkGenMax, chunkGenQueue.Count); i++)
+            {
+                UpdateChunkMesh(chunkGenQueue.Dequeue());
+            }
+        await System.Threading.Tasks.Task.Yield();
+    }
+
+    private void CreateVisibleChunks() {
+        if(chunks == null) Init();
+        //set all chunks into list of old chunks
+        Dictionary<Vector3Int, MarchingChunk> oldChunks = new Dictionary<Vector3Int, MarchingChunk>(chunks);
+
+        //Get chunk coord of player
+        Vector3 pCC = playerCamera.position / chunkSize;
+        Vector3Int playerChunkCoord = new Vector3Int(Mathf.RoundToInt(pCC.x), Mathf.RoundToInt(pCC.y), Mathf.RoundToInt(pCC.z));
+
+        //go from player chunk coord -viewDistance to player chunk coord +viewDistance (viewDistance is (Horizonal Range, Vertical Range) )
+        for (int x = -viewDistance.x; x <= viewDistance.x; x++)
+        {
+            for (int y = -viewDistance.y; y <= viewDistance.y; y++)
+            {
+                for (int z = -viewDistance.x; z <= viewDistance.x; z++)
+                {
+                    //Get current chunk coord
+                    Vector3Int chunkCoord = new Vector3Int(x,y,z) + playerChunkCoord;
+
+                    //check if chunk is in old chunks, if it is add it to chunks dictonary. If it isnt, make the chunk and add to dictonary
+                    MarchingChunk chunk;
+
+                    if(oldChunks.TryGetValue(chunkCoord, out chunk)) {
+                        //chunk exists, remove from old dictonary
+                        oldChunks.Remove(chunkCoord);
+                        continue;
+                    } else {
+                        //chunk doesnt exist, create chunk and add to dictonary
+                        chunk = CreateChunk(chunkCoord, centerWorld);
+                        chunks.Add(chunkCoord, chunk);
+                    }
+                }
+            }
+        }
+        
+        //remove all old chunks from current dictonary
+        foreach (Vector3Int chunkCoord in oldChunks.Keys)
+        {
+            chunks.Remove(chunkCoord);
+            oldChunks[chunkCoord].DestoryOrDisable();
+        }
     }
 
     public void GenerateFixedMap() {
+        Init();
         InitChunks();
-        UpdateAllChunks();
     }
 
     private void InitChunks() {
-        chunks = new List<MarchingChunk>();
-        List<MarchingChunk> oldChunks = new List<MarchingChunk>(FindObjectsOfType<MarchingChunk> ());
+        if(chunks == null) Init();
+        Dictionary<Vector3Int, MarchingChunk> oldChunks = new Dictionary<Vector3Int, MarchingChunk>();
+        foreach (MarchingChunk chunk in FindObjectsOfType<MarchingChunk>())
+        {
+            oldChunks.Add(chunk.coord, chunk);
+        }
 
         //go through all coords and create chunk if it doesnt exist
         for (int x = 0; x < numChunks.x; x++)
@@ -89,34 +162,27 @@ public class MarchingManager : MonoBehaviour
                 for (int z = 0; z < numChunks.z; z++)
                 {
                     Vector3Int coord = new Vector3Int(x, y, z);
-                    bool chunkExists = false;
 
-                    //if chunk exists, add to list
-                    for (int i = 0; i < oldChunks.Count; i++)
-                    {
-                        if(oldChunks[i].coord == coord) {
-                            chunks.Add(oldChunks[i]);
-                            oldChunks.RemoveAt(i);
-                            chunkExists = true;
-                            break;
-                        }
+                    MarchingChunk chunk;
+
+                    if(oldChunks.TryGetValue(coord, out chunk)) {
+                        //chunks exists, remove from old dictonary
+                        oldChunks.Remove(coord);
+                    } else {
+                        //chunk doesnt exist, create chunk
+                        chunk = CreateChunk(coord, centerWorld);
                     }
 
-                    //create chunk
-                    if(!chunkExists) {
-                        MarchingChunk newChunk = CreateChunk(coord, centerWorld);
-                        chunks.Add(newChunk);
-                    }
-
-                    chunks[chunks.Count - 1].SetUp(coord, chunkSize, true, centerWorld, numChunks);
+                    //Setup chunk and add to dictonary
+                    chunks.Add(coord, chunk);
                 }
             }
         }
 
         //Delete unused chunks
-        for (int i = 0; i < oldChunks.Count; i++)
+        foreach (MarchingChunk value in oldChunks.Values)
         {
-            oldChunks[i].DestoryOrDisable();
+            value.DestoryOrDisable();
         }
     }
 
@@ -126,11 +192,14 @@ public class MarchingManager : MonoBehaviour
         GameObject chunkObj = Instantiate(chunkObject, Vector3.zero, Quaternion.identity, transform);
         chunkObj.name = "Chunk " + coord;
         MarchingChunk chunk = chunkObj.GetComponent<MarchingChunk>();
-        chunk.SetUp(coord, chunkSize, true, centerChunks, numChunks);
+        if(fixedMapSize && centerChunks) chunk.SetUp(coord, chunkSize, true, centerChunks, numChunks);
+        else chunk.SetUp(coord, chunkSize, true);
+        if(Application.isPlaying) chunkGenQueue.Enqueue(chunk);
+        else UpdateChunkMesh(chunk);
         return chunk;
     }
 
-    private void UpdateChunkMesh(MarchingChunk chunk) {
+    private void UpdateChunkMesh(MarchingChunk chunk) {//Called async some places so need to check if chunks still exists
         int numVoxelsPerAxis = numPointsPerAxis - 1;
         int numThreadsPerAxis = Mathf.CeilToInt(numVoxelsPerAxis / (float)threadGroupSize);
         float pointSpacing = chunkSize / (numPointsPerAxis - 1);
@@ -152,17 +221,13 @@ public class MarchingManager : MonoBehaviour
             debugCountBuffer = new ComputeBuffer (1, sizeof (int), ComputeBufferType.IndirectArguments);
         }
 
+        if(chunk == null) return;
         //Vector3Int coord = chunk.coord;
         Vector3 worldCoords = chunk.ChunkWorldCoords();
 
         Vector3 worldSize = numChunks * chunkSize;
 
         float spacing = (float)chunkSize / (numPointsPerAxis - 1);
-
-        //generate noise
-        /*Vector4[] noiseMap = GenerateNoise(numPoints, worldCoords, worldSize, spacing);
-
-        pointsBuffer.SetData(noiseMap);*/
 
         //generate noise with compute shader
         pointsBuffer = GenerateNoise(pointsBuffer, numPoints, numPointsPerAxis, spacing, noiseOffset, worldCoords, worldSize);
@@ -183,6 +248,8 @@ public class MarchingManager : MonoBehaviour
             marching.SetBuffer(0, "debuging", debugBuffer);
             debugBuffer.SetCounterValue(0);
         }
+
+        if(chunk == null) return;
 
         triangleBuffer.SetCounterValue(0);
         marching.SetBuffer(0, "points", pointsBuffer);
@@ -210,6 +277,8 @@ public class MarchingManager : MonoBehaviour
                 Debug.Log("id: " + id);
             }
         }
+
+        if(chunk == null) return;
 
         //Get number of triangles in triangle buffer
         ComputeBuffer.CopyCount(triangleBuffer, triCountBuffer, 0);
@@ -247,6 +316,7 @@ public class MarchingManager : MonoBehaviour
             //Create mesh from triangles
             MarchingChunk.MeshData meshData = new MarchingChunk.MeshData(verticies, triangles);
 
+            if(chunk == null) return;
             chunk.UpdateMeshes(meshData, debugInfo);
         }
         
@@ -306,65 +376,9 @@ public class MarchingManager : MonoBehaviour
         }
     }
 
-    Vector4[] GenerateNoise(int numPoints, Vector3 worldCoords, Vector3 worldSize, float spacing) {
-        if(noise == null) noise = new Noise(seed);
-        Vector4[] noiseMap = new Vector4[numPoints];
-
-        if(debugInfo) Debug.Log("NumPoints: " + numPoints + ", Spacing: " + spacing);
-
-        for (int x = 0; x < numPointsPerAxis; x++)
-        {
-            for (int y = 0; y < numPointsPerAxis; y++)
-            {
-                for (int z = 0; z < numPointsPerAxis; z++)
-                {
-                    Vector3 pos = worldCoords + noiseOffset + (new Vector3(x,y,z) * spacing) - (worldSize/2);
-                    int index = indexFromCoord(x,y,z);
-                    noiseMap[index] = new Vector4(x*spacing, y*spacing, z*spacing, Evaluate(pos));
-                }
-            }
-        }
-
-        return noiseMap;
-    }
-
-    float Evaluate(Vector3 pos) {
-        float value = 0;
-
-        switch(noiseType) {
-            case NoiseType.Plane:
-                value = -pos.y+1;
-                break;
-            case NoiseType.Sphere:
-                //value = radius - pos.magnitude;
-                pos += (numChunks*chunkSize)/2;
-                value = radius-Mathf.Sqrt(Mathf.Pow(pos.x,2)+Mathf.Pow(pos.y,2)+Mathf.Pow(pos.z,2));
-                break;
-            case NoiseType.Noise:
-                value = noise.Evaluate(pos * noiseFrequency) * noiseAmplitude;
-                break;
-            case NoiseType.Terrain:
-                value = -pos.y+1;
-                float nAmp = noiseAmplitude;
-                float nFre = noiseFrequency;
-                for (int i = 0; i < noiseOctaves; i++)
-                {
-                    value += noise.Evaluate(pos*nFre)*nAmp;
-                    nAmp /= 2;
-                    nFre *= 1.95f;
-                }
-                if(hasFloor) value += Mathf.Clamp01((floorLevel - pos.y)*3)*40;
-                break;
-            case NoiseType.Testing:
-                value = -pos.y+1;
-                break;
-        }
-
-        return value;
-    }
-
-    private void UpdateAllChunks() {
-        foreach (MarchingChunk chunk in chunks) {
+    public void UpdateAllChunks() {
+        settingsChanged = false;
+        foreach (MarchingChunk chunk in chunks.Values) {
             UpdateChunkMesh(chunk);
         }
     }
